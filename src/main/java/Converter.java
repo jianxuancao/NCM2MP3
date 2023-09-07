@@ -1,5 +1,3 @@
-package service;
-
 import com.alibaba.fastjson.JSON;
 import mime.Mata;
 import mime.Ncm;
@@ -12,7 +10,6 @@ import org.jaudiotagger.tag.images.Artwork;
 import org.jaudiotagger.tag.images.ArtworkFactory;
 import utils.AES;
 import utils.CR4;
-import utils.Utils;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -27,6 +24,12 @@ import java.util.Base64;
  * @author charlottexiao
  */
 public class Converter {
+    public static void main(String[] args) {
+        File file = new File("D:\\CloudMusic\\VipSongsDownload\\Kenny Loggins - Danger Zone.ncm");
+        Converter converter = new Converter();
+        converter.ncm2Mp3(file.getAbsolutePath(), "D:\\CloudMusic\\VipSongsDownload");
+    }
+
     /**
      * NCM转换MP3
      * 功能:将NCM音乐转换为MP3
@@ -82,7 +85,7 @@ public class Converter {
     private byte[] cr4Key(FileInputStream inputStream) throws Exception {
         byte[] bytes = new byte[4];
         inputStream.read(bytes, 0, 4);
-        int len = Utils.getLength(bytes);
+        int len = getLength(bytes);
         bytes = new byte[len];
         inputStream.read(bytes, 0, len);
         //1.按字节对0x64异或
@@ -107,7 +110,7 @@ public class Converter {
     private String mataData(FileInputStream inputStream) throws Exception {
         byte[] bytes = new byte[4];
         inputStream.read(bytes, 0, 4);
-        int len = Utils.getLength(bytes);
+        int len = getLength(bytes);
         bytes = new byte[len];
         inputStream.read(bytes, 0, len);
         //跳过:CRC(4字节),unused Gap(5字节)
@@ -137,7 +140,7 @@ public class Converter {
     private byte[] albumImage(FileInputStream inputStream) throws Exception {
         byte[] bytes = new byte[4];
         inputStream.read(bytes, 0, 4);
-        int len = Utils.getLength(bytes);
+        int len = getLength(bytes);
         byte[] imageData = new byte[len];
         inputStream.read(imageData, 0, len);
         return imageData;
@@ -165,9 +168,8 @@ public class Converter {
 
     /**
      * 功能:将NCM中各个信息整合到一起,转换成对应音乐格式
-     *
      */
-    private void combineFile(Ncm ncm) throws Exception{
+    private void combineFile(Ncm ncm) throws Exception {
         AudioFile audioFile = AudioFileIO.read(new File(ncm.getOutFile()));
         Tag tag = audioFile.getTag();
         tag.setField(FieldKey.ALBUM, ncm.getMata().album);
@@ -175,10 +177,45 @@ public class Converter {
         tag.setField(FieldKey.ARTIST, ncm.getMata().artist[0]);
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(ncm.getImage()));
         if (image != null) {
-            MetadataBlockDataPicture coverArt = new MetadataBlockDataPicture(ncm.getImage(), 0, Utils.albumImageMimeType(ncm.getImage()), "", image.getWidth(), image.getHeight(), image.getColorModel().hasAlpha() ? 32 : 24, 0);
+            MetadataBlockDataPicture coverArt = new MetadataBlockDataPicture(ncm.getImage(), 0, albumImageMimeType(ncm.getImage()), "", image.getWidth(), image.getHeight(), image.getColorModel().hasAlpha() ? 32 : 24, 0);
             Artwork artwork = ArtworkFactory.createArtworkFromMetadataBlockDataPicture(coverArt);
             tag.setField(tag.createField(artwork));
         }
         AudioFileIO.write(audioFile);
+    }
+
+    /**
+     * 获取长度
+     * 功能:将用小端字节排序,无符号整型4字节的长度信息转换为十进制数
+     *
+     * @param bytes 长度信息的字节数组
+     * @return 长度
+     */
+    public static int getLength(byte[] bytes) {
+        int len = 0;
+        len |= bytes[0] & 0xff;
+        len |= (bytes[1] & 0xff) << 8;
+        len |= (bytes[2] & 0xff) << 16;
+        len |= (bytes[3] & 0xff) << 24;
+        return len;
+    }
+
+    /**
+     * 图片专辑MIME类型
+     * 功能:获取图片的MIME类型
+     *
+     * @param albumImage 图片数据
+     * @return 图片类型
+     */
+    public static String albumImageMimeType(byte[] albumImage) {
+        byte[] mPNG = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};// PNG file header
+        if (albumImage.length > 8) {
+            for (int i = 0; i < 8; i++) {
+                if (albumImage[i] != mPNG[i]) {
+                    return "image/jpg";
+                }
+            }
+        }
+        return "image/png";
     }
 }

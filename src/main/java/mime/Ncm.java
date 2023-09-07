@@ -30,5 +30,4 @@ public class Ncm {
      */
     private byte[] image;
 
-
 }
